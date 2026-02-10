@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     sudo \
     ca-certificates \
+    vim \
     && rm -rf /var/lib/apt/lists/*
 
 # 4. Install Python Runtimes via uv
@@ -34,7 +35,8 @@ RUN useradd -d /devx -s /bin/bash devx \
     && echo "root:devx" | chpasswd \
     && echo "devx:devx" | chpasswd \
     && usermod -aG sudo devx \
-    && echo "devx ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+    && echo "devx ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
+    && git config --global init.defaultBranch main
 
 # 7. Install Orchestration Tools
 ARG DEVX_VERSION=unknown

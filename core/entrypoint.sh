@@ -30,14 +30,30 @@ if ! grep -q "repo_watcher.py" /devx/.bashrc; then
     echo "uv run /usr/local/bin/repo_watcher.py" >> /devx/.bashrc
 fi
 
-# Add version switching aliases for convenience
+# Add version switching aliases and a better prompt
 if ! grep -q "alias use-py" /devx/.bashrc; then
     echo "alias use-py311='uv python pin 3.11'" >> /devx/.bashrc
     echo "alias use-py312='uv python pin 3.12'" >> /devx/.bashrc
 fi
 
+# Inject a high-performance, informative prompt
+if ! grep -q "DevX 2.0 Prompt Configuration" /devx/.bashrc; then
+    cat << 'EOF' >> /devx/.bashrc
+
+# DevX 2.0 Prompt Configuration
+# [Time] devx@devx [Dir] (git:branch)
+parse_git_branch() {
+     git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/ (\1)/'
+}
+export PS1="\[\033[01;30m\][\t] \[\033[01;32m\]devx@devx \[\033[01;34m\]\w\[\033[01;35m\]\$(parse_git_branch)\[\033[00m\] \$ "
+EOF
+fi
+
 # Fix permissions for the devx user for the entire home directory
 chown -R devx:devx /devx
+
+# Configure git default branch for the devx user
+sudo -u devx git config --global init.defaultBranch main
 
 # Execute the original command (sshd)
 exec "$@"

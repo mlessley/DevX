@@ -1,6 +1,8 @@
 #!/usr/bin/env uv run
 import subprocess
 import os
+import time
+from datetime import datetime
 
 def get_git_repos(root_dir):
     """Finds all git repositories under the given root directory."""
@@ -28,16 +30,47 @@ def get_git_status(repo_path):
         )
         
         # Check for dirty working directory
-        status = subprocess.run(
+        status_cmd = subprocess.run(
             ["git", "status", "--short"],
             cwd=repo_path, capture_output=True, text=True, check=True
         )
+        is_dirty = len(status_cmd.stdout.strip()) > 0
         
+        # Calculate how long it has been dirty
+        dirty_duration_str = ""
+        seconds_ago = 0
+        if is_dirty:
+            # Get the mtime of the most recently modified file in the repo (excluding .git)
+            last_mod = 0
+            for root, dirs, files in os.walk(repo_path):
+                if ".git" in dirs:
+                    dirs.remove(".git")
+                for f in files:
+                    try:
+                        mtime = os.path.getmtime(os.path.join(root, f))
+                        if mtime > last_mod:
+                            last_mod = mtime
+                    except OSError:
+                        continue
+            
+            if last_mod > 0:
+                seconds_ago = int(time.time() - last_mod)
+                if seconds_ago < 60:
+                    dirty_duration_str = "just now"
+                elif seconds_ago < 3600:
+                    dirty_duration_str = f"{seconds_ago // 60}m ago"
+                elif seconds_ago < 86400:
+                    dirty_duration_str = f"{seconds_ago // 3600}h ago"
+                else:
+                    dirty_duration_str = f"{seconds_ago // 86400}d ago"
+
         return {
             "name": os.path.basename(repo_path),
             "branch": branch,
             "unpushed": len(unpushed.stdout.strip()) > 0,
-            "dirty": len(status.stdout.strip()) > 0
+            "dirty": is_dirty,
+            "dirty_duration": dirty_duration_str,
+            "seconds_ago": seconds_ago
         }
     except Exception:
         return None
@@ -96,10 +129,20 @@ def main():
             continue
             
         if status["dirty"] or status["unpushed"]:
-            print(f"\033[1;36m{status['name']}\033[0m (\033[0;35m{status['branch']}\033[0m):", end=" ")
+            # Logic: If dirty for < 5 minutes, keep it subtle. If > 1 hour, make it bright red.
+            color = "\033[1;36m" # Default cyan
+            if status["dirty"]:
+                if status["seconds_ago"] > 3600:
+                    color = "\033[1;31m" # Bright Red for old changes
+                elif status["seconds_ago"] > 300:
+                    color = "\033[1;33m" # Yellow for medium changes
+                else:
+                    color = "\033[0;36m" # Dim Cyan for very fresh changes
+
+            print(f"{color}{status['name']}\033[0m (\033[0;35m{status['branch']}\033[0m):", end=" ")
             issues = []
             if status["dirty"]:
-                issues.append("\033[1;31mDirty\033[0m")
+                issues.append(f"Dirty ({status['dirty_duration']})")
             if status["unpushed"]:
                 issues.append("\033[1;31mUnpushed\033[0m")
             print(" | ".join(issues))

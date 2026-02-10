@@ -1,0 +1,35 @@
+#!/bin/bash
+# --- DevX Universal Bridge ---
+# This script detects the environment and routes commands to the DevX orchestrator.
+
+# Get the absolute path of the directory where this script is located
+# Use pwd -W on MSYS/Git Bash to get the Windows-style path for wslpath
+if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+    DIR="$(pwd -W)"
+else
+    DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+fi
+
+# Detect Environment
+if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+    # We are on Windows (Git Bash / MSYS)
+    # 1. Get the Windows path using pwd -W
+    WIN_DIR=$(pwd -W)
+    
+    # 2. Convert to WSL path. 
+    # We use 'wsl.exe' explicitly and disable MSYS path conversion for this command
+    WSL_DIR=$(MSYS_NO_PATHCONV=1 wsl.exe wslpath -u "$WIN_DIR")
+    
+    # 3. Call python3 inside WSL
+    # We use MSYS_NO_PATHCONV=1 to prevent Git Bash from mangling the Linux path
+    MSYS_NO_PATHCONV=1 wsl.exe python3 "$WSL_DIR/cli/devx.py" "$@"
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    # We are on macOS
+    python3 "$DIR/cli/devx.py" "$@"
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    # We are on native Linux
+    python3 "$DIR/cli/devx.py" "$@"
+else
+    # Fallback for other environments
+    python3 "$DIR/cli/devx.py" "$@"
+fi

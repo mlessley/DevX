@@ -39,7 +39,8 @@ def inject_ssh_key(pub_key):
     for user in ["root", "devx"]:
         home = "/root" if user == "root" else "/devx"
         run_command(["docker", "exec", "devx-sandbox", "mkdir", "-p", f"{home}/.ssh"])
-        cmd = f"echo '{pub_key}' >> {home}/.ssh/authorized_keys && chmod 600 {home}/.ssh/authorized_keys && chown -R {user}:{user} {home}/.ssh"
+        # Use grep to check if key already exists before appending
+        cmd = f"grep -qF '{pub_key}' {home}/.ssh/authorized_keys || echo '{pub_key}' >> {home}/.ssh/authorized_keys && chmod 600 {home}/.ssh/authorized_keys && chown -R {user}:{user} {home}/.ssh"
         run_command(["docker", "exec", "devx-sandbox", "sh", "-c", cmd])
 
 def check_docker():
@@ -104,6 +105,7 @@ Host devx
         print(f"Copying DevX key to Windows SSH directory: {win_key}")
         run_command(["cp", str(wsl_key), str(win_key)])
 
+    # --- Update Windows Config ---
     content = ""
     if config_path.exists():
         with open(config_path, "r") as f:
@@ -114,6 +116,22 @@ Host devx
     else:
         print(f"Appending 'devx' host to Windows SSH config at {config_path}...")
         with open(config_path, "a") as f:
+            f.write(config_entry)
+
+    # --- Update WSL Config ---
+    wsl_config_path = Path.home() / ".ssh" / "config"
+    wsl_config_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    wsl_content = ""
+    if wsl_config_path.exists():
+        with open(wsl_config_path, "r") as f:
+            wsl_content = f.read()
+            
+    if "Host devx" in wsl_content:
+        print("SSH config for 'devx' already exists in WSL.")
+    else:
+        print(f"Appending 'devx' host to WSL SSH config at {wsl_config_path}...")
+        with open(wsl_config_path, "a") as f:
             f.write(config_entry)
 
 def up(args):

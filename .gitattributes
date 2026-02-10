@@ -1,0 +1,11 @@
+# Set default behavior to handle line endings automatically
+* text=auto
+
+# Force LF for shell scripts and other Linux-sensitive files
+*.sh text eol=lf
+devx text eol=lf
+core/entrypoint.sh text eol=lf
+
+# Keep Windows-specific files as CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf

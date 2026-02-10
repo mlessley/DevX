@@ -7,11 +7,13 @@ mkdir -p /devx/repos
 # Initialize shadow clone for freshness check if it doesn't exist
 if [ ! -d /devx/.devx_cache ]; then
     echo "Initializing DevX shadow clone..."
-    # We clone the repo into a hidden directory on the volume
-    # Note: This requires git to be able to reach the repo
-    # For now, we'll just create the directory as a placeholder
-    mkdir -p /devx/.devx_cache
-    # git clone --bare https://github.com/youruser/DevX.git /devx/.devx_cache
+    DEVX_ORIGIN=$(cat /usr/local/etc/devx_origin)
+    if [ "$DEVX_ORIGIN" != "unknown" ]; then
+        # We clone the repo into a hidden directory on the volume
+        git clone --bare "$DEVX_ORIGIN" /devx/.devx_cache
+    else
+        mkdir -p /devx/.devx_cache
+    fi
 fi
 
 # Copy skeleton files if they don't exist (since /devx is a volume)

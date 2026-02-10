@@ -38,7 +38,9 @@ RUN useradd -d /devx -s /bin/bash devx \
 
 # 7. Install Orchestration Tools
 ARG DEVX_VERSION=unknown
-RUN echo $DEVX_VERSION > /usr/local/etc/devx_version
+ARG DEVX_ORIGIN=unknown
+RUN echo $DEVX_VERSION > /usr/local/etc/devx_version \
+    && echo $DEVX_ORIGIN > /usr/local/etc/devx_origin
 
 RUN touch /var/log/devx_adhoc_history && chmod 666 /var/log/devx_adhoc_history
 COPY repo_watcher.py /usr/local/bin/repo_watcher.py

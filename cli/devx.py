@@ -4,17 +4,18 @@ import subprocess
 import os
 from pathlib import Path
 
-def run_command(cmd, cwd=None, capture_output=True):
+def run_command(cmd, cwd=None, capture_output=True, silent=False):
     """Helper to run a command in the WSL environment."""
     try:
         result = subprocess.run(cmd, cwd=cwd, check=True, capture_output=capture_output, text=True)
         return result.stdout.strip() if capture_output else None
     except subprocess.CalledProcessError as e:
-        if capture_output:
-            print(f"Error running command {' '.join(cmd)}: {e.stderr}")
-        else:
-            print(f"Error running command {' '.join(cmd)}")
-        sys.exit(1)
+        if not silent:
+            if capture_output:
+                print(f"Error running command {' '.join(cmd)}: {e.stderr}")
+            else:
+                print(f"Error running command {' '.join(cmd)}")
+        raise e
 
 def setup_ssh_keys():
     """Generates SSH keys in WSL if they don't exist and prepares them for injection."""
@@ -127,26 +128,36 @@ def up(args):
     # 1. Setup SSH keys locally in WSL
     pub_key = setup_ssh_keys()
 
-    # Get current git hash for build signature
+    # Get current git hash and origin for build signature
     try:
-        current_hash = run_command(["git", "rev-parse", "HEAD"], cwd=project_root)
+        current_hash = run_command(["git", "rev-parse", "HEAD"], cwd=project_root, silent=True)
     except Exception:
         current_hash = "unknown"
 
-    print(f"Starting DevX Sandbox (Build Signature: {current_hash[:8]})...")
-    
-    # Use --build-arg to inject the version
-    build_env = os.environ.copy()
-    # Note: docker-compose up --build doesn't directly support --build-arg in all versions via CLI easily
-    # but we can set it via environment variables if the docker-compose.yml uses it, 
-    # or we can run a separate build command.
-    
     try:
-        # Run build separately to ensure build-args are passed
-        run_command(["docker", "compose", "build", "--build-arg", f"DEVX_VERSION={current_hash}"], cwd=core_dir)
+        current_origin = run_command(["git", "remote", "get-url", "origin"], cwd=project_root, silent=True)
+    except Exception:
+        current_origin = "unknown"
+
+    if current_origin != "unknown":
+        print(f"Starting DevX Sandbox (Build Signature: {current_hash[:8]}, Origin: {current_origin})...")
+    else:
+        print(f"Starting DevX Sandbox (Build Signature: {current_hash[:8]})...")
+    
+    # Use --build-arg to inject the version and origin
+    try:
+        run_command([
+            "docker", "compose", "build", 
+            "--build-arg", f"DEVX_VERSION={current_hash}",
+            "--build-arg", f"DEVX_ORIGIN={current_origin}"
+        ], cwd=core_dir)
         run_command(["docker", "compose", "up", "-d"], cwd=core_dir)
     except Exception:
-        run_command(["docker-compose", "build", "--build-arg", f"DEVX_VERSION={current_hash}"], cwd=core_dir)
+        run_command([
+            "docker-compose", "build", 
+            "--build-arg", f"DEVX_VERSION={current_hash}",
+            "--build-arg", f"DEVX_ORIGIN={current_origin}"
+        ], cwd=core_dir)
         run_command(["docker-compose", "up", "-d"], cwd=core_dir)
     
     # 2. Inject the key into the container

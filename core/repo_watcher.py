@@ -13,14 +13,40 @@ def get_git_repos(root_dir):
     return repos
 
 def get_git_status(repo_path):
-    # ... (existing code) ...
+    try:
+        # Check for unpushed commits
+        branch_result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=repo_path, capture_output=True, text=True, check=True
+        )
+        branch = branch_result.stdout.strip()
+        
+        # Check for unpushed commits (against origin)
+        unpushed = subprocess.run(
+            ["git", "log", f"origin/{branch}..{branch}"],
+            cwd=repo_path, capture_output=True, text=True
+        )
+        
+        # Check for dirty working directory
+        status = subprocess.run(
+            ["git", "status", "--short"],
+            cwd=repo_path, capture_output=True, text=True, check=True
+        )
+        
+        return {
+            "name": os.path.basename(repo_path),
+            "branch": branch,
+            "unpushed": len(unpushed.stdout.strip()) > 0,
+            "dirty": len(status.stdout.strip()) > 0
+        }
+    except Exception:
+        return None
 
 def check_devx_freshness():
     """Checks if the running container matches the latest DevX source code."""
     version_file = "/usr/local/etc/devx_version"
+    origin_file = "/usr/local/etc/devx_origin"
     cache_dir = "/devx/.devx_cache"
-    # Placeholder for the actual DevX repo URL
-    repo_url = "https://github.com/youruser/DevX.git" 
 
     if not os.path.exists(version_file):
         return
@@ -32,16 +58,16 @@ def check_devx_freshness():
         return
 
     # Check if we have a shadow clone to compare against
-    if not os.path.exists(cache_dir):
+    if not os.path.exists(cache_dir) or not os.path.exists(os.path.join(cache_dir, "HEAD")):
         return
 
     try:
         # 1. Fetch latest from shadow clone
-        subprocess.run(["git", "fetch"], cwd=cache_dir, capture_output=True, check=True)
+        subprocess.run(["git", "fetch", "origin", "main:main"], cwd=cache_dir, capture_output=True, check=True)
         
         # 2. Get the latest remote hash
         remote_hash = subprocess.run(
-            ["git", "rev-parse", "origin/main"], 
+            ["git", "rev-parse", "main"], 
             cwd=cache_dir, capture_output=True, text=True, check=True
         ).stdout.strip()
 

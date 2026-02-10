@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: devx
+    container_name: devx-sandbox
+    volumes:
+      - devx_workspace:/devx
+    ports:
+      - "127.0.0.1:2222:22"
+    restart: unless-stopped
+    environment:
+      - UV_PYTHON_INSTALL_DIR=/opt/python
+
+volumes:
+  devx_workspace:
+    name: devx_workspace
